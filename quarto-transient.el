@@ -1,5 +1,6 @@
 ;; Define a transient for quarto
 
+(require 'quarto-mode)
 (require 'transient)
 
 (transient-define-prefix quarto ()
