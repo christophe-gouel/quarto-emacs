@@ -374,5 +374,6 @@ passes ARGS to it."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (provide 'quarto-mode)
+(require 'quarto-transient)
 
 ;;; quarto-mode.el ends here
