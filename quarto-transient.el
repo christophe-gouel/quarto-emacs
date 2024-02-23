@@ -192,3 +192,7 @@
   :shortarg "-f"
   :argument "--log-format "
   :choices '("plain" "json-stream"))
+
+;;; _
+(provide 'quarto-transient)
+;;; quarto-transient.el ends here
