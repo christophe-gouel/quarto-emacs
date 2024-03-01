@@ -1,22 +1,49 @@
-;; Define a transient for quarto
+;;; quarto-transient.el --- Define a transient for quarto -*- lexical-binding: t -*-
+;;
+;; Author: Christophe Gouel
+;;
+;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; This file is *NOT* part of GNU Emacs.
+;;
+;; This program is free software; you can redistribute it and/or
+;; modify it under the terms of the GNU General Public License as
+;; published by the Free Software Foundation; either version 3, or
+;; (at your option) any later version.
+;;
+;; This program is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+;; General Public License for more details.
+;;
+;; You should have received a copy of the GNU General Public License
+;; along with this program; see the file COPYING.  If not, write to
+;; the Free Software Foundation, Inc., 51 Franklin Street, Fifth
+;; Floor, Boston, MA 02110-1301, USA.
+;;
+
+;;; Commentary:
+
+;;; Code:
 
 (require 'quarto-mode)
 (require 'transient)
 
-(transient-define-prefix quarto ()
+;;;###autoload (autoload 'quarto-transient "quarto-transient" nil t)
+(transient-define-prefix quarto-transient ()
   "Quarto transient."  
   ["Actions"
-   ("r" "Render files or projects" not-defined)
+   ("r" "Render files or projects" quarto-transient--not-defined)
    ("p" "Render and preview a document or wbesite project" quarto-transient-preview)
-   ("s" "Serve a Shiny interactive document" not-defined)
-   ("c" "Create a Quarto project or extension" not-defined)
-   ("C" "Create a project for rendering multiple documents" not-defined)
-   ("P" "Publish a document or project" not-defined)
-   ("k" "Kill all *quarto-...* buffers (including running previews)" quarto--kill-buffers)])
+   ("s" "Serve a Shiny interactive document" quarto-transient--not-defined)
+   ("c" "Create a Quarto project or extension" quarto-transient--not-defined)
+   ("C" "Create a project for rendering multiple documents" quarto-transient--not-defined)
+   ("P" "Publish a document or project" quarto-transient--not-defined)
+   ("k" "Kill all *quarto-...* buffers (including running previews)" quarto-transient--kill-buffers)])
 
+;;;###autoload (autoload 'quarto-transient-preview "quarto-transient" nil t)
 (transient-define-prefix quarto-transient-preview ()
-  "Quarto transient preview."
-  
+  "Quarto transient preview."  
   [["Arguments"
    (quarto-transient-preview:-p)
    ("-s" "Don't run a local preview web server" "--no-serve")
@@ -26,30 +53,31 @@
    ("-o" "Don't open a browser to preview the site" "--no-browser")
    ("-w" "Do not re-render input files when they change" "--no-watch-inputs")
    (quarto-transient-preview:-t)
-   ("-q" "Suppress console output" "--quiet")
    ("-P" "Active project profile(s)" "--profile")]
    ["Log"
-    (quarto-transient-preview:-l)
-    (quarto-transient-preview:-L)
-    (quarto-transient-preview:-f)]]
-  
+    (quarto-transient:-l)
+    (quarto-transient:-L)
+    (quarto-transient:-f)]
+   ["Buffer"
+    ("-q" "Run process without associated buffer" "--quiet")]]
   [["Preview"
-   ("p" "This buffer" quarto--preview-this-file)
-   ("d" "This directory" quarto--preview-this-directory)
-   ("f" "A file" quarto--preview-a-file)
-   ("D" "A directory" quarto--preview-a-directory)]
+   ("p" "This buffer" quarto-transient--preview-this-file)
+   ("d" "This directory" quarto-transient--preview-this-directory)
+   ("f" "A file" quarto-transient--preview-a-file)
+   ("D" "A directory" quarto-transient--preview-a-directory)]
    ["Stop"
-    ("s" "Stop all previews" quarto--preview-stop)]])
+    ("s" "Stop all previews" quarto-transient--preview-stop)]])
 
-(defun not-defined ()
+(defun quarto-transient--not-defined ()
+  "Action not yet defined."
   (interactive)
   (message "Action not yet defined"))
 
-(defun quarto--preview-async (target preview-buffer-name &optional args)
-  "Run quarto preview on current buffer"
+(defun quarto-preview--preview-async (target preview-buffer-name &optional args)
+  "Run quarto preview on current buffer."
   ;; Split arguments into separate list elements when they include a space
   (if args 
-      (setq args (split-string-list-on-space args)))
+      (setq args (quarto-preview--split-string-list-on-space args)))
   (let ((preview-command-list
 	 ;; Need to flatten the list because args is itself a list
 	 (flatten-tree (list quarto-command
@@ -62,7 +90,7 @@
       (when process
       	(kill-process process)))
     (when (get-buffer preview-buffer-name)
-      (quarto--kill-buffer-with-process preview-buffer-name))
+      (quarto-preview--kill-buffer-with-process preview-buffer-name))
     ;; No buffer if "--quiet" argument
     (when (member "--quiet" args)
       (setq preview-buffer-name nil))
@@ -72,35 +100,38 @@
      :buffer preview-buffer-name
      :command preview-command-list)))
 
-(defun quarto--preview-this-file (&optional args)
+(defun quarto-transient--preview-this-file (&optional args)
   "Run quarto preview on current buffer"
   (interactive (list (transient-args 'quarto-transient-preview)))
     (let* ((input buffer-file-name)
 	   (preview-buffer-name (format "*quarto-preview-%s*"
 					(file-name-nondirectory input))))
-    (quarto--preview-async input preview-buffer-name args)))
+    (quarto-preview--preview-async input preview-buffer-name args)))
 
-(defun quarto--preview-this-directory (&optional args)
+(defun quarto-transient--preview-this-directory (&optional args)
+  "Run quarto preview on current directory."
   (interactive (list (transient-args 'quarto-transient-preview)))
   (let* ((input default-directory)
 	 (preview-buffer-name (format "*quarto-preview-%s*" input)))
-    (quarto--preview-async input preview-buffer-name args)))
+    (quarto-preview--preview-async input preview-buffer-name args)))
 
-(defun quarto--preview-a-file (&optional args)
+(defun quarto-transient--preview-a-file (&optional args)
+  "Run quarto preview on a file."
   (interactive (list (transient-args 'quarto-transient-preview)))
   (let* ((input (read-file-name "Select file: "))
 	 (preview-buffer-name (format "*quarto-preview-%s*"
 				      (file-name-nondirectory input))))
-    (quarto--preview-async input preview-buffer-name args)))
+    (quarto-preview--preview-async input preview-buffer-name args)))
 
-(defun quarto--preview-a-directory (&optional args)
+(defun quarto-transient--preview-a-directory (&optional args)
+  "Run quarto preview on a directory."
   (interactive (list (transient-args 'quarto-transient-preview)))
   (let* ((input (read-directory-name "Select directory: "))
 	 (preview-buffer-name (format "*quarto-preview-%s*"
 				      (file-name-nondirectory input))))
-    (quarto--preview-async input preview-buffer-name args)))
+    (quarto-preview--preview-async input preview-buffer-name args)))
 
-(defun split-string-list-on-space (string-list)
+(defun quarto-preview--split-string-list-on-space (string-list)
   "Split strings in STRING-LIST containing spaces into separate elements."
   (apply #'append
          (mapcar (lambda (str)
@@ -109,7 +140,8 @@
                      (list str)))
                  string-list)))
 
-(defun quarto--kill-buffer-with-process (buffer)
+(defun quarto-preview--kill-buffer-with-process (buffer)
+  "Kill the buffer and the process associated with it."
   ;; Retrieve the process associated with the buffer, if any
   (let ((process (get-buffer-process buffer)))
     ;; If there is a process, set the query-on-exit flag to nil
@@ -118,32 +150,35 @@
   ;; Kill the buffer
   (kill-buffer buffer))
 
-(defun quarto--kill-a-process (process-name-to-kill)
+(defun quarto-transient--kill-a-process (process-name-to-kill)
+  "Kill a process with name PROCESS-NAME-TO-KILL."
   (interactive)
   (dolist (process (process-list))
     (when (string-match process-name-to-kill (process-name process))
 	(delete-process process))))
 
-
-(defun quarto--kill-processes (&optional verb)
+(defun quarto-transient--kill-processes (&optional verb)
+  "Kill all quarto processes."
   (interactive)
   (let ((to-kill (concat "quarto-" verb)))
     (dolist (process (process-list))
       (when (string-prefix-p to-kill (process-name process))
 	(delete-process process)))))
 
-(defun quarto--kill-buffers (&optional verb)
+(defun quarto-transient--kill-buffers (&optional verb)
+  "Kill all quarto buffers."
   (interactive)
-  (quarto--kill-processes verb)
+  (quarto-transient--kill-processes verb)
   (let ((to-kill (concat "*quarto-" verb)))
 	(dolist (buffer (buffer-list))
     (when (string-prefix-p to-kill (buffer-name buffer))
       (kill-buffer buffer)))))
 
-(defun quarto--preview-stop ()
+(defun quarto-transient--preview-stop ()
+  "Stop all quarto previews."
   (interactive)
-  (quarto--kill-processes "preview")
-  (quarto--kill-buffers "preview")
+  (quarto-transient--kill-processes "preview")
+  (quarto-transient--kill-buffers "preview")
   )
 
 (transient-define-argument quarto-transient-preview:-p ()
@@ -172,21 +207,21 @@
   :argument "--timeout "
   :reader #'transient-read-number-N+)
 
-(transient-define-argument quarto-transient-preview:-l ()
+(transient-define-argument quarto-transient:-l ()
   :description "Path to log file"
   :class 'transient-option
   :shortarg "-l"
   :argument "--log "
   :reader #'transient-read-file)
 
-(transient-define-argument quarto-transient-preview:-L ()
+(transient-define-argument quarto-transient:-L ()
   :description "Log level"
   :class 'transient-option
   :shortarg "-L"
   :argument "--log-level "
   :choices '("info" "warning" "error" "critical"))
 
-(transient-define-argument quarto-transient-preview:-f ()
+(transient-define-argument quarto-transient:-f ()
   :description "Log format"
   :class 'transient-option
   :shortarg "-f"
