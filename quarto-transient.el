@@ -34,10 +34,9 @@
   "Quarto transient."  
   ["Actions"
    ("r" "Render files or projects" quarto-transient--not-defined)
-   ("p" "Render and preview a document or wbesite project" quarto-transient-preview)
+   ("p" "Render and preview a document or website project" quarto-transient-preview)
    ("s" "Serve a Shiny interactive document" quarto-transient--not-defined)
-   ("c" "Create a Quarto project or extension" quarto-transient--not-defined)
-   ("C" "Create a project for rendering multiple documents" quarto-transient--not-defined)
+   ("c" "Create a Quarto project or extension" quarto-transient-create)
    ("P" "Publish a document or project" quarto-transient--not-defined)
    ("k" "Kill all *quarto-...* buffers (including running previews)" quarto-transient--kill-buffers)])
 
@@ -67,6 +66,25 @@
    ("D" "A directory" quarto-transient--preview-a-directory)]
    ["Stop"
     ("s" "Stop all previews" quarto-transient--preview-stop)]])
+
+;;;###autoload (autoload 'quarto-transient-create "quarto-transient" nil t)
+(transient-define-prefix quarto-transient-create ()
+  "Quarto transient create."  
+  [["Arguments"
+   ("-P" "Active project profile(s)" "--profile")]
+   ["Log"
+    (quarto-transient:-l)
+    (quarto-transient:-L)
+    (quarto-transient:-f)]
+   ["Buffer"
+    ("-q" "Run process without associated buffer" "--quiet")]]
+  [["Project"
+   ("d" "Default" quarto-transient--not-defined)
+   ("w" "Website" quarto-transient--create)
+   ("b" "Blog" quarto-transient--not-defined)
+   ("B" "Book" quarto-transient--not-defined)
+   ("c" "Confluence" quarto-transient--not-defined)
+   ("m" "Manuscript" quarto-transient--not-defined)]])
 
 (defun quarto-transient--not-defined ()
   "Action not yet defined."
@@ -227,6 +245,24 @@
   :shortarg "-f"
   :argument "--log-format "
   :choices '("plain" "json-stream"))
+
+(defun quarto-transient--create (&optional args)
+  (interactive (list (transient-args 'quarto-transient-create)))
+  (let* ((input-directory (read-directory-name "Select directory: "))
+	 (input (file-relative-name input-directory)))
+    (make-process
+     :name "quarto-create"
+     :buffer nil
+     :command (flatten-tree (list quarto-command
+				  "create"
+				  "project"
+				  "website"
+				  input
+				  "--no-prompt"
+				  args))
+          :sentinel (lambda (proc event)
+                      (when (string= event "finished\n")
+			(dired input-directory))))))
 
 ;;; _
 (provide 'quarto-transient)
