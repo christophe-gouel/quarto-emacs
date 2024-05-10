@@ -26,6 +26,7 @@
 
 ;;; Code:
 
+;;;; quarto-transient menu and general functions
 (require 'quarto-mode)
 (require 'transient)
 
@@ -115,7 +116,7 @@
   ;; Kill the buffer
   (kill-buffer buffer))
 
-;;; quarto-transient-preview
+;;;; quarto-transient-preview
 
 ;;;###autoload (autoload 'quarto-transient-preview "quarto-transient" nil t)
 (transient-define-prefix quarto-transient-preview ()
@@ -237,7 +238,7 @@
   :argument "--timeout "
   :reader #'transient-read-number-N+)
 
-;;; quarto-transient-render
+;;;; quarto-transient-render
 
 ;;;###autoload (autoload 'quarto-transient-render "quarto-transient" nil t)
 (transient-define-prefix quarto-transient-render ()
@@ -265,7 +266,27 @@
   ;; :choices '("html" "pdf" "docx" "odt" "epub" "revealjs" "pptx" "beamer" "gfm" "commonmark" "hugo" "docusaurus" "markua" "mediawiki" "dokuwiki" "zimwiki" "jira" "xwiki")
   )
 
-;;; quarto-transient log options
+;;;; quarto-transient-create
+
+(defun quarto-transient--create (&optional args)
+  (interactive (list (transient-args 'quarto-transient-create)))
+  (let* ((input-directory (read-directory-name "Select directory: "))
+	 (input (file-relative-name input-directory)))
+    (make-process
+     :name "quarto-create"
+     :buffer nil
+     :command (flatten-tree (list quarto-command
+				  "create"
+				  "project"
+				  "website"
+				  input
+				  "--no-prompt"
+				  args))
+          :sentinel (lambda (proc event)
+                      (when (string= event "finished\n")
+			(dired input-directory))))))
+
+;;;; quarto-transient log options
 
 (transient-define-argument quarto-transient:-l ()
   :description "Path to log file"
@@ -288,24 +309,5 @@
   :argument "--log-format "
   :choices '("plain" "json-stream"))
 
-(defun quarto-transient--create (&optional args)
-  (interactive (list (transient-args 'quarto-transient-create)))
-  (let* ((input-directory (read-directory-name "Select directory: "))
-	 (input (file-relative-name input-directory)))
-    (make-process
-     :name "quarto-create"
-     :buffer nil
-     :command (flatten-tree (list quarto-command
-				  "create"
-				  "project"
-				  "website"
-				  input
-				  "--no-prompt"
-				  args))
-          :sentinel (lambda (proc event)
-                      (when (string= event "finished\n")
-			(dired input-directory))))))
-
-;;; _
 (provide 'quarto-transient)
 ;;; quarto-transient.el ends here
