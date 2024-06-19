@@ -73,7 +73,7 @@
 	 ;; Need to flatten the list because args is itself a list
 	 (flatten-tree (list quarto-command
 			     verb
-			     target
+			     (expand-file-name target)
 			     args)))
 	(quarto-process-name (format "quarto-%s-%s" verb target)))
     ;; Kill process and buffer to be used if they exist already
