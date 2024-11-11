@@ -29,13 +29,14 @@
 ;;;; quarto-transient menu and general functions
 (require 'quarto-mode)
 (require 'transient)
+(require 'xterm-color)
 
 (defvar quarto-transient--is-display nil
   "Boolean defining whether to display the associated buffer.")
 
 ;;;###autoload (autoload 'quarto-transient "quarto-transient" nil t)
 (transient-define-prefix quarto-transient ()
-  "Quarto transient."  
+  "Quarto transient."
   ["Actions"
    ("r" "Render files or projects" quarto-transient-render)
    ("p" "Render and preview a document or website project" quarto-transient-preview)
@@ -59,15 +60,24 @@
                  string-list)))
 
 (transient-define-suffix quarto-transient--display ()
-      "Display associated buffer"
+      "Display associated buffer."
       :transient t
       (interactive)
       (setq quarto-transient--is-display t))
 
+(defun quarto-transient--process-filter (process output)
+  "Apply xterm-color to the output and insert it into a buffer.
+PROCESS is the process running quarto and OUTPUT is the output of the process."
+  (with-current-buffer (process-buffer process)
+    (insert (xterm-color-filter output))))
+
 (defun quarto-transient--async (verb target quarto-buffer-name &optional args)
-  "Run quarto."
+  "Run quarto.
+VERB is the verb to run, TARGET is the target file or directory,
+QUARTO-BUFFER-NAME is the name of the buffer to use, and ARGS are the
+arguments to pass to quarto."
   ;; Split arguments into separate list elements when they include a space
-  (if args 
+  (if args
       (setq args (quarto-transient--split-string-list-on-space args)))
   (let ((quarto-command-list
 	 ;; Need to flatten the list because args is itself a list
@@ -89,7 +99,8 @@
     (make-process
      :name quarto-process-name
      :buffer quarto-buffer-name
-     :command quarto-command-list)
+     :command quarto-command-list
+     :filter 'quarto-transient--process-filter)
     ;; Display associated buffer
     (when quarto-transient--is-display
       (display-buffer quarto-buffer-name)
@@ -103,7 +114,7 @@
 	(delete-process process))))
 
 (defun quarto-transient--kill-processes (&optional verb)
-  "Kill all quarto processes."
+  "Kill all quarto processes or all VERB quarto processes."
   (interactive)
   (let ((to-kill (concat "quarto-" verb)))
     (dolist (process (process-list))
@@ -111,7 +122,7 @@
 	(delete-process process)))))
 
 (defun quarto-transient--kill-buffers (&optional verb)
-  "Kill all quarto buffers."
+  "Kill all quarto buffers or all VERB quarto buffers."
   (interactive)
   (quarto-transient--kill-processes verb)
   (let ((to-kill (concat "*quarto-" verb)))
@@ -120,7 +131,7 @@
       (kill-buffer buffer)))))
 
 (defun quarto-transient--kill-buffer-with-process (buffer)
-  "Kill the buffer and the process associated with it."
+  "Kill the BUFFER and the process associated with it."
   ;; Retrieve the process associated with the buffer, if any
   (let ((process (get-buffer-process buffer)))
     ;; If there is a process, set the query-on-exit flag to nil
@@ -133,7 +144,7 @@
 
 ;;;###autoload (autoload 'quarto-transient-preview "quarto-transient" nil t)
 (transient-define-prefix quarto-transient-preview ()
-  "Quarto transient preview."  
+  "Quarto transient preview."
   [["Arguments"
    (quarto-transient-preview:-p)
    ("-s" "Don't run a local preview web server" "--no-serve")
@@ -160,7 +171,8 @@
     ("s" "Stop all previews" quarto-transient--preview-stop)]])
 
 (defun quarto-transient--preview-this-file (&optional args)
-  "Run quarto preview on current buffer"
+  "Run quarto preview on current buffer.
+ARGS are the arguments to pass to quarto."
   (interactive (list (transient-args 'quarto-transient-preview)))
     (let* ((input buffer-file-name)
 	   (preview-buffer-name (format "*quarto-preview-%s*"
@@ -168,14 +180,16 @@
     (quarto-transient--async "preview" input preview-buffer-name args)))
 
 (defun quarto-transient--preview-this-directory (&optional args)
-  "Run quarto preview on current directory."
+  "Run quarto preview on current directory.
+ARGS are the arguments to pass to quarto."
   (interactive (list (transient-args 'quarto-transient-preview)))
   (let* ((input default-directory)
 	 (preview-buffer-name (format "*quarto-preview-%s*" input)))
     (quarto-transient--async "preview" input preview-buffer-name args)))
 
 (defun quarto-transient--preview-a-file (&optional args)
-  "Run quarto preview on a file."
+  "Run quarto preview on a file.
+ARGS are the arguments to pass to quarto."
   (interactive (list (transient-args 'quarto-transient-preview)))
   (let* ((input (read-file-name "Select file: "))
 	 (preview-buffer-name (format "*quarto-preview-%s*"
@@ -183,7 +197,8 @@
     (quarto-transient--async "preview" input preview-buffer-name args)))
 
 (defun quarto-transient--preview-a-directory (&optional args)
-  "Run quarto preview on a directory."
+  "Run quarto preview on a directory.
+ARGS are the arguments to pass to quarto."
   (interactive (list (transient-args 'quarto-transient-preview)))
   (let* ((input (read-directory-name "Select directory: "))
 	 (preview-buffer-name (format "*quarto-preview-%s*"
@@ -191,7 +206,7 @@
     (quarto-transient--async "preview" input preview-buffer-name args)))
 
 (defun quarto-preview--kill-buffer-with-process (buffer)
-  "Kill the buffer and the process associated with it."
+  "Kill the BUFFER and the process associated with it."
   ;; Retrieve the process associated with the buffer, if any
   (let ((process (get-buffer-process buffer)))
     ;; If there is a process, set the query-on-exit flag to nil
@@ -237,7 +252,7 @@
 
 ;;;###autoload (autoload 'quarto-transient-render "quarto-transient" nil t)
 (transient-define-prefix quarto-transient-render ()
-  "Quarto transient render."  
+  "Quarto transient render."
   [["Arguments"
    (quarto-transient-render:-t)
    ("-P" "Active project profile(s)" "--profile")]
@@ -255,7 +270,8 @@
    ("D" "A directory" quarto-transient--render-a-directory)]])
 
 (defun quarto-transient--render-this-file (&optional args)
-  "Run quarto render on current buffer"
+  "Run quarto render on current buffer.
+ARGS are the arguments to pass to quarto."
   (interactive (list (transient-args 'quarto-transient-render)))
     (let* ((input buffer-file-name)
 	   (render-buffer-name (format "*quarto-render-%s*"
@@ -263,14 +279,16 @@
     (quarto-transient--async "render" input render-buffer-name args)))
 
 (defun quarto-transient--render-this-directory (&optional args)
-  "Run quarto render on current directory."
+  "Run quarto render on current directory.
+ARGS are the arguments to pass to quarto."
   (interactive (list (transient-args 'quarto-transient-render)))
   (let* ((input default-directory)
 	 (render-buffer-name (format "*quarto-render-%s*" input)))
     (quarto-transient--async "render" input render-buffer-name args)))
 
 (defun quarto-transient--render-a-file (&optional args)
-  "Run quarto render on a file."
+  "Run quarto render on a file.
+ARGS are the arguments to pass to quarto."
   (interactive (list (transient-args 'quarto-transient-render)))
   (let* ((input (read-file-name "Select file: "))
 	 (render-buffer-name (format "*quarto-render-%s*"
@@ -278,7 +296,8 @@
     (quarto-transient--async "render" input render-buffer-name args)))
 
 (defun quarto-transient--render-a-directory (&optional args)
-  "Run quarto render on a directory."
+  "Run quarto render on a directory.
+ARGS are the arguments to pass to quarto."
   (interactive (list (transient-args 'quarto-transient-render)))
   (let* ((input (read-directory-name "Select directory: "))
 	 (render-buffer-name (format "*quarto-render-%s*"
@@ -298,7 +317,7 @@
 
 ;;;###autoload (autoload 'quarto-transient-create "quarto-transient" nil t)
 (transient-define-prefix quarto-transient-create ()
-  "Quarto transient create."  
+  "Quarto transient create."
   [["Arguments"
    ("-P" "Active project profile(s)" "--profile")]
    ["Log"
@@ -316,6 +335,8 @@
    ("m" "Manuscript" quarto-transient--not-defined)]])
 
 (defun quarto-transient--create (&optional args)
+  "Run quarto create project.
+ARGS are the arguments to pass to quarto."
   (interactive (list (transient-args 'quarto-transient-create)))
   (let* ((input-directory (read-directory-name "Select directory: "))
 	 (input (file-relative-name input-directory)))
@@ -358,5 +379,3 @@
 
 (provide 'quarto-transient)
 ;;; quarto-transient.el ends here
-
-
